@@ -1,6 +1,6 @@
 Description: >
-  This is an example of a long running ECS service that needs to connect to another ECS service (product-service)
-  via it's load balancer. We use environment variables to pass the URL of the product-service to this one's container(s).
+  This is an example of a long running ECS service that needs to connect to another ECS service (customer-service)
+  via it's load balancer. We use environment variables to pass the URL of the customer-service to this one's container(s).
 
 Parameters:
   VPC:
@@ -20,22 +20,16 @@ Parameters:
     Description: Maximum number of instances of this task we can run across our cluster
     Type: Number
     Default: 3
-
-  ProductServiceUrl:
-    Description: The URL of the Product Service (used to fetch product information)
+  RedisHost:
+    Description: Please provide the Redis host
     Type: String
+  RedisPort: 
+    Description: Please provide the Redis port
+    Type: Number
+
 
   Listener:
     Description: The Application Load Balancer listener to register with
-    Type: String
-
-  Path:
-    Description: The path to register with the Application Load Balancer
-    Type: String
-    Default: /
-
-  ECSServiceAutoScalingRoleARN:
-    Description: The ECS service auto scaling role ARN
     Type: String
 
 Resources:
@@ -48,24 +42,26 @@ Resources:
       DesiredCount: !Ref DesiredCount
       TaskDefinition: !Ref TaskDefinition
       LoadBalancers:
-        - ContainerName: "website-service"
-          ContainerPort: 8000
+        - ContainerName: "masterdata-service"
+          ContainerPort: 3000
           TargetGroupArn: !Ref TargetGroup
 
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: website-service
+      Family: masterdata-service
       ContainerDefinitions:
-        - Name: website-service
+        - Name: masterdata-service
           Essential: true
-          Image: 275396840892.dkr.ecr.us-east-1.amazonaws.com/ecs-refarch-cloudformation/website-service:1.0.0
+          Image: 222889925444.dkr.ecr.eu-west-1.amazonaws.com/masterdata:latest
           Memory: 128
           Environment:
-            - Name: PRODUCT_SERVICE_URL
-              Value: !Ref ProductServiceUrl
+            - Name: RedisHost
+              Value: !Ref RedisHost
+            - Name: RedisPort
+              Value: !Ref RedisPort
           PortMappings:
-            - ContainerPort: 8000
+            - ContainerPort: 3000
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -87,7 +83,7 @@ Resources:
       Matcher:
         HttpCode: 200-299
       HealthCheckIntervalSeconds: 10
-      HealthCheckPath: /
+      HealthCheckPath: /masterdata/health
       HealthCheckProtocol: HTTP
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 2
@@ -96,11 +92,11 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Properties:
       ListenerArn: !Ref Listener
-      Priority: 1
+      Priority: 2
       Conditions:
         - Field: path-pattern
           Values:
-            - !Ref Path
+            - "/masterdata/*"
       Actions:
         - TargetGroupArn: !Ref TargetGroup
           Type: forward
@@ -146,85 +142,3 @@ Resources:
                   },
                 ],
             }
-
-  ServiceScalableTarget:
-    Type: "AWS::ApplicationAutoScaling::ScalableTarget"
-    Properties:
-      MaxCapacity: !Ref MaxCount
-      MinCapacity: !Ref DesiredCount
-      ResourceId: !Join
-        - /
-        - - service
-          - !Ref Cluster
-          - !GetAtt Service.Name
-      RoleARN: !Ref ECSServiceAutoScalingRoleARN
-      ScalableDimension: ecs:service:DesiredCount
-      ServiceNamespace: ecs
-
-  ServiceScaleOutPolicy:
-    Type: "AWS::ApplicationAutoScaling::ScalingPolicy"
-    Properties:
-      PolicyName: ServiceScaleOutPolicy
-      PolicyType: StepScaling
-      ScalingTargetId: !Ref ServiceScalableTarget
-      StepScalingPolicyConfiguration:
-        AdjustmentType: ChangeInCapacity
-        Cooldown: 1800
-        MetricAggregationType: Average
-        StepAdjustments:
-          - MetricIntervalLowerBound: 0
-            ScalingAdjustment: 1
-
-  ServiceScaleInPolicy:
-    Type: "AWS::ApplicationAutoScaling::ScalingPolicy"
-    Properties:
-      PolicyName: ServiceScaleInPolicy
-      PolicyType: StepScaling
-      ScalingTargetId: !Ref ServiceScalableTarget
-      StepScalingPolicyConfiguration:
-        AdjustmentType: ChangeInCapacity
-        Cooldown: 1800
-        MetricAggregationType: Average
-        StepAdjustments:
-          - MetricIntervalUpperBound: 0
-            ScalingAdjustment: -1
-
-  CPUScaleOutAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmName: CPU utilization greater than 90%
-      AlarmDescription: Alarm if cpu utilization greater than 90% of reserved cpu
-      Namespace: AWS/ECS
-      MetricName: CPUUtilization
-      Dimensions:
-        - Name: ClusterName
-          Value: !Ref Cluster
-        - Name: ServiceName
-          Value: !GetAtt Service.Name
-      Statistic: Maximum
-      Period: "60"
-      EvaluationPeriods: "3"
-      Threshold: "90"
-      ComparisonOperator: GreaterThanThreshold
-      AlarmActions:
-        - !Ref ServiceScaleOutPolicy
-
-  CPUScaleInAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmName: CPU utilization less than 70%
-      AlarmDescription: Alarm if cpu utilization greater than 70% of reserved cpu
-      Namespace: AWS/ECS
-      MetricName: CPUUtilization
-      Dimensions:
-        - Name: ClusterName
-          Value: !Ref Cluster
-        - Name: ServiceName
-          Value: !GetAtt Service.Name
-      Statistic: Maximum
-      Period: "60"
-      EvaluationPeriods: "10"
-      Threshold: "70"
-      ComparisonOperator: LessThanThreshold
-      AlarmActions:
-        - !Ref ServiceScaleInPolicy

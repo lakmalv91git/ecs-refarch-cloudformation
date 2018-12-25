@@ -12,10 +12,20 @@ Parameters:
     Type: String
     Default: c4.large
 
-  ClusterSize:
-    Description: How many ECS hosts do you want to initially deploy?
+  ClusterSizeDesired:
+    Description: If you trip a CloudWatch alarm for a scale up event, then it will notify the auto scaler to change it's desired to a specified higher amount and the auto scaler will start an instance/s to meet that number. If you trip a CloudWatch alarm to scale down, then it will change the auto scaler desired to a specified lower number and the auto scaler will terminate instance/s to get to that number.
     Type: Number
-    Default: 4
+    Default: 2
+  
+  ClusterSizeMin:
+    Description: This will be the minimum number of instances that can run in your auto scale group. If your scale down CloudWatch alarm is triggered, your auto scale group will never terminate instances below this number.
+    Type: Number
+    Default: 2
+
+  ClusterSizeMax:
+    Description: This will be the maximum number of instances that you can run in your auto scale group. If your scale up CloudWatch alarm stays triggered, your auto scale group will never create instances more than the maximum amount specified.
+    Type: Number
+    Default: 6
 
   VPC:
     Description: Choose which VPC this ECS cluster should be deployed to
@@ -46,9 +56,9 @@ Resources:
     Properties:
       VPCZoneIdentifier: !Ref Subnets
       LaunchConfigurationName: !Ref ECSLaunchConfiguration
-      MinSize: !Ref ClusterSize
-      MaxSize: !Ref ClusterSize
-      DesiredCapacity: !Ref ClusterSize
+      MinSize: !Ref ClusterSizeMin
+      MaxSize: !Ref ClusterSizeMax
+      DesiredCapacity: !Ref ClusterSizeDesired
       Tags:
         - Key: Name
           Value: !Sub ${EnvironmentName} ECS host
