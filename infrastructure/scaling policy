@@ -1,0 +1,33 @@
+autoscale1
+Actions
+Policy type:
+Step scaling
+Execute policy when:
+CPU utilization greater than 70%	
+breaches the alarm threshold: CPUUtilization > 70 for 3 consecutive periods of 60 seconds
+for the metric dimensions
+ClusterName = newauto
+ServiceName = newauto-MasterDataService-1C1J7B1G9OYJ6-Service-5HRXGJFIYH8S
+Take the action:
+Add	
+1
+instances	
+when
+70
+<=
+CPUUtilization
+<
++infinity
+Instances need:
+300
+seconds to warm up after each step
+autoscale2
+Actions
+Policy type:
+Step scaling
+Execute policy when:
+CPU utilization less than 50%	
+breaches the alarm threshold: CPUUtilization < 50 for 10 consecutive periods of 60 seconds
+for the metric dimensions
+ClusterName = newauto
+ServiceName = newauto-MasterDataService-1C1J7B1G9OYJ6-Service-5HRXGJFIYH8S

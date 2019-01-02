@@ -52,7 +52,7 @@ Resources:
       Parameters:
         EnvironmentName: !Ref AWS::StackName
         InstanceType: t2.micro
-        ClusterSizeDesired: 2
+        ClusterSizeDesired: 1
         VPC: !GetAtt VPC.Outputs.VPC
         SecurityGroup: !GetAtt SecurityGroups.Outputs.ECSHostSecurityGroup
         Subnets: !GetAtt VPC.Outputs.PrivateSubnets
@@ -79,6 +79,7 @@ Resources:
         Cluster: !GetAtt ECS.Outputs.Cluster
         DesiredCount: 1
         Listener: !GetAtt ALB.Outputs.Listener
+        ECSServiceAutoScalingRoleARN: !GetAtt ECS.Outputs.ECSServiceAutoScalingRole
  
   UserManagementService:
     Type: AWS::CloudFormation::Stack
@@ -91,6 +92,60 @@ Resources:
         ALBHost: !GetAtt ALB.Outputs.LoadBalancerUrl
         Listener: !GetAtt ALB.Outputs.Listener
         ECSServiceAutoScalingRoleARN: !GetAtt ECS.Outputs.ECSServiceAutoScalingRole 
+# /
+  ServiceScaleOutPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties: 
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !GetAtt ECS.Outputs.ECSAutoScalingGroupName
+      Cooldown: 60
+      ScalingAdjustment: 1
+  
+  ServiceScaleInPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties: 
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !GetAtt ECS.Outputs.ECSAutoScalingGroupName
+      Cooldown: 60
+      ScalingAdjustment: -1
+
+
+  CPUScaleOutAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Alarm if cpu utilization greater than 60% of reserved cpu
+      Namespace: AWS/ECS
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: ClusterName
+          Value: !GetAtt ECS.Outputs.Cluster
+      Statistic: Average
+      Period: "60"
+      EvaluationPeriods: "2"
+      Threshold: "60"
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref ServiceScaleOutPolicy
+
+  CPUScaleInAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Alarm if cpu utilization less than 40% of reserved cpu
+      Namespace: AWS/ECS
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: ClusterName
+          Value: !GetAtt ECS.Outputs.Cluster
+      Statistic: Maximum
+      Period: "60"
+      EvaluationPeriods: "2"
+      Threshold: "40"
+      ComparisonOperator: LessThanThreshold
+      AlarmActions:
+        - !Ref ServiceScaleInPolicy
+# /
+
+
 
   LifecycleHook:
     Type: AWS::CloudFormation::Stack

@@ -20,7 +20,7 @@ Parameters:
   ClusterSizeMin:
     Description: This will be the minimum number of instances that can run in your auto scale group. If your scale down CloudWatch alarm is triggered, your auto scale group will never terminate instances below this number.
     Type: Number
-    Default: 2
+    Default: 1
 
   ClusterSizeMax:
     Description: This will be the maximum number of instances that you can run in your auto scale group. If your scale up CloudWatch alarm stays triggered, your auto scale group will never create instances more than the maximum amount specified.
@@ -78,6 +78,7 @@ Resources:
           - AlarmNotification
           - ScheduledActions
         WaitOnResourceSignals: true
+
 
   ECSLaunchConfiguration:
     Type: AWS::AutoScaling::LaunchConfiguration

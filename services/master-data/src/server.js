@@ -87,9 +87,12 @@ app.get('/masterdata/averageageuser', (req, res) => {
     redis.get("users", function (err, reply) {
         var count = 0;
         var total = 0.0;
+
+        fibo(30);
         if (err) {
             db.collection('user').find().toArray(function (err, results) {
-                redis.set("users", results, function (err, replySet) {
+                redis.set("users", JSON.stringify(results), function (err, replySet) {
+                    console.log("redis.set - err ", err);
                     console.log("redis.set ", replySet);
                 });
 
@@ -104,11 +107,15 @@ app.get('/masterdata/averageageuser', (req, res) => {
                 }
                 console.log('count' + count);
                 console.log('total' + total);
+
                 var average = total / count;
                 res.send("result " + average);
 
             })
         } else {
+
+            reply = JSON.parse(reply)
+            console.log('reply' + reply);
             for (let element of reply) {
                 var age = element.age;
 
@@ -125,4 +132,11 @@ app.get('/masterdata/averageageuser', (req, res) => {
         }
     });
 })
+
+function fibo(n) {
+
+    if (n < 2)
+        return 1;
+    else return fibo(n - 2) + fibo(n - 1);
+}
 
